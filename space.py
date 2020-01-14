@@ -1,4 +1,4 @@
-import tensorflow as tf  # Deep learning library
+import tensorflow as tf  # Deep learning library - need v 1.10
 import numpy as np  # Handle matrices
 import retro
 from skimage import transform  # Image pre-processing
@@ -99,7 +99,7 @@ memory_size = 1000000  # Number of experiences the memory can keep
 stack_size = 4  # Number of frames stacked
 
 # MODIFY TO FALSE IF JUST WANT TO SEE THE TRAINED AGENT
-training = False
+training = True
 
 # TURN THIS ON IF YOU WANT TO RENDER THE ENVIRONMENT
 episode_render = True
@@ -333,6 +333,8 @@ if training == True:
             while step < max_steps:
                 step += 1
 
+                print("Step {}".format(step))
+
                 # Increase decay step
                 decay_step += 1
 
@@ -363,7 +365,7 @@ if training == True:
                     total_reward = np.sum(episode_rewards)
 
                     print("Episode: {}".format(episode), "Total reward: {}".format(total_reward),
-                          "Explore P: {:.4f}".format(explore_probablity), "Training Loss: {:.4f}")
+                          "Explore P: {:.4f}".format(explore_probablity), "Training Loss: {:.4f}".format(loss))
 
                     # rewards_list.append((episode, total_reward))
 
@@ -418,7 +420,7 @@ if training == True:
                 writer.add_summary(summary, episode)
                 writer.flush()
 
-            # Save model every 5 episodes
+            # Save model every 2 episodes
             if episode % 2 == 0:
                 save_path = saver.save(sess, "./models/model.ckpt")
                 print("Model Saved")
