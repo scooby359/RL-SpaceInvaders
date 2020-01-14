@@ -3,7 +3,7 @@ import numpy as np  # Handle matrices
 import retro
 from skimage import transform  # Image pre-processing
 from skimage.color import rgb2gray  # Gray out images
-import matplotlib.pyplot as plt # For drawing graphs
+import matplotlib.pyplot as plt  # For drawing graphs
 from collections import deque  # Ordered collections
 import random
 import warnings  # Allows us to ignore warnings from skimage
@@ -99,7 +99,8 @@ memory_size = 1000000  # Number of experiences the memory can keep
 stack_size = 4  # Number of frames stacked
 
 # MODIFY TO FALSE IF JUST WANT TO SEE THE TRAINED AGENT
-training = True
+training = False
+firstTrain = False
 
 # TURN THIS ON IF YOU WANT TO RENDER THE ENVIRONMENT
 episode_render = True
@@ -266,10 +267,10 @@ for i in range(pretrain_length):
         # Our state is now the next state
         state = next_state
 
-# Setup tensor board writer
+# Setup TensorBoard writer - output destination
 writer = tf.summary.FileWriter("/tensorboard/dqn/1")
 
-# Losses
+# Configure TF to record losses for TensorBoard analysis
 tf.summary.scalar("Loss", DQNetwork.loss)
 
 write_op = tf.summary.merge_all()
@@ -281,7 +282,6 @@ Training Agent
 
 # Function to choose random or best known action
 def predict_action(explore_start, explore_stop, decy_rate, decay_step, state, actions):
-
     # Pick a number for epsilon greedy
     exp_exp_tradeoff = np.random.rand()
 
@@ -308,12 +308,22 @@ def predict_action(explore_start, explore_stop, decy_rate, decay_step, state, ac
 # Saver will help us to save the model
 saver = tf.train.Saver()
 
-if training == True:
+if training:
     with tf.Session() as sess:
-        # Initialise the variables
-        sess.run(tf.global_variables_initializer())
 
-        # Initalise the decay rate to reduce epsilon
+        # Initialise the variables
+        if firstTrain:
+            sess.run(tf.global_variables_initializer())
+            print("First training run - creating new model")
+        else:
+            try:
+                saver.restore(sess, "./models/model.ckpt")
+                print("Loaded existing training model")
+            except:
+                print("Error loading existing training model - creating new")
+                sess.run(tf.global_variables_initializer())
+
+        # Initialise the decay rate to reduce epsilon
         decay_step = 0
 
         for episode in range(total_episodes):
@@ -327,13 +337,14 @@ if training == True:
             # make a new episode and observe first state
             state = env.reset()
 
-            # Remember that stack fram function also calls preprocess function
+            # Remember that stack frame function also calls preprocess function
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
             while step < max_steps:
                 step += 1
 
-                print("Step {}".format(step))
+                # if step % 50 == 0:
+                #    print("Step {}".format(step))
 
                 # Increase decay step
                 decay_step += 1
@@ -382,7 +393,7 @@ if training == True:
                     # st+1 is now current state
                     state = next_state
 
-                # Learnng Part
+                # Learning Part
                 batch = memory.sample(batch_size)
                 states_mb = np.array([each[0] for each in batch], ndmin=3)
                 actions_mb = np.array([each[1] for each in batch])
@@ -420,10 +431,9 @@ if training == True:
                 writer.add_summary(summary, episode)
                 writer.flush()
 
-            # Save model every 2 episodes
-            if episode % 2 == 0:
-                save_path = saver.save(sess, "./models/model.ckpt")
-                print("Model Saved")
+            # Save updated model
+            save_path = saver.save(sess, "./models/model.ckpt")
+            print("Model Saved")
 
 with tf.Session() as sess:
     total_test_rewards = []
