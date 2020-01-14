@@ -464,3 +464,5 @@ with tf.Session() as sess:
             state = next_state
 
     env.close()
+
+    # force git
