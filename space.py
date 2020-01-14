@@ -23,7 +23,6 @@ possible_actions = np.array(np.identity(env.action_space.n, dtype=int).tolist())
 
 # Pre-process frames - take a frame, grayscale it, resize it, normalise it, return it
 def preprocess_frame(frame):
-    print("preprocess_frame")
     # Grayscale
     gray = rgb2gray(frame)
 
@@ -48,7 +47,6 @@ stacked_frames = deque([np.zeros((110, 84), dtype=np.int) for i in range(stack_s
 
 
 def stack_frames(stacked_frames, state, is_new_episode):
-    print("stack_frames")
     # Pre-process frames
     frame = preprocess_frame(state)
 
@@ -101,10 +99,10 @@ memory_size = 1000000  # Number of experiences the memory can keep
 stack_size = 4  # Number of frames stacked
 
 # MODIFY TO FALSE IF JUST WANT TO SEE THE TRAINED AGENT
-training = True
+training = False
 
 # TURN THIS ON IF YOU WANT TO RENDER THE ENVIRONMENT
-episode_render = False
+episode_render = True
 
 
 class DQNetwork:
@@ -218,11 +216,9 @@ class Memory():
         self.buffer = deque(maxlen=max_size)
 
     def add(self, experience):
-        print("memory.add")
         self.buffer.append(experience)
 
     def sample(self, batch_size):
-        print("memory.sample")
         buffer_size = len(self.buffer)
         index = np.random.choice(np.arange(buffer_size),
                                  size=batch_size,
@@ -285,7 +281,6 @@ Training Agent
 
 # Function to choose random or best known action
 def predict_action(explore_start, explore_stop, decy_rate, decay_step, state, actions):
-    print("predict_action")
 
     # Pick a number for epsilon greedy
     exp_exp_tradeoff = np.random.rand()
@@ -322,7 +317,7 @@ if training == True:
         decay_step = 0
 
         for episode in range(total_episodes):
-            print("training - episode: {}".format(episode))
+            print("Training - episode: {}".format(episode))
             # set step to 0
             step = 0
 
@@ -424,6 +419,48 @@ if training == True:
                 writer.flush()
 
             # Save model every 5 episodes
-            if episode % 5 == 0:
+            if episode % 2 == 0:
                 save_path = saver.save(sess, "./models/model.ckpt")
                 print("Model Saved")
+
+with tf.Session() as sess:
+    total_test_rewards = []
+
+    # Load the model
+    saver.restore(sess, "./models/model.ckpt")
+
+    for episode in range(10):
+        total_rewards = 0
+
+        state = env.reset()
+        state, stacked_frames = stack_frames(stacked_frames, state, True)
+
+        print("****************************************************")
+        print("EPISODE ", episode)
+
+        while True:
+            # Reshape the state
+            state = state.reshape((1, *state_size))
+            # Get action from Q-network
+            # Estimate the Qs values state
+            Qs = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: state})
+
+            # Take the biggest Q value (= the best action)
+            choice = np.argmax(Qs)
+            action = possible_actions[choice]
+
+            # Perform the action and get the next_state, reward, and done information
+            next_state, reward, done, _ = env.step(action)
+            env.render()
+
+            total_rewards += reward
+
+            if done:
+                print("Score", total_rewards)
+                total_test_rewards.append(total_rewards)
+                break
+
+            next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
+            state = next_state
+
+    env.close()
