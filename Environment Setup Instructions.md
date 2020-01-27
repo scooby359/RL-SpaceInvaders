@@ -12,7 +12,7 @@ Used as it creates a container for each project, allowing you to select the Pyth
 
 Used for the simulation. Only require one game, but this provides all.
 
-### [Python 3.6 for Windows 64-bit](https://www.python.org/ftp/python/3.6.8/python-3.6.8.exe)
+### [Python 3.6 for Windows 64-bit](https://www.python.org/ftp/python/3.6.7/python-3.6.7-amd64.exe)
 
 No need to add this to path
 
