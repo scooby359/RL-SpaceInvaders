@@ -22,10 +22,9 @@ print("Size of action space: ", env.action_space.n)
 # I.e. a table for all inputs (n), with only one active in each row
 possible_actions = np.array(np.identity(env.action_space.n, dtype=int).tolist())
 
+
 # Pre-process frames - take a frame, grayscale it, resize it, normalise it, return it
 def preprocess_frame(frame):
-
-    print("Pre-processing frame")
 
     # Grayscale
     gray = rgb2gray(frame)
@@ -51,8 +50,6 @@ stacked_frames = deque([np.zeros((110, 84), dtype=np.int) for i in range(stack_s
 
 
 def stack_frames(stacked_frame, game_state, is_new_episode):
-
-    print("Stacking frames")
 
     # Pre-process frames
     frame = preprocess_frame(game_state)
@@ -102,15 +99,15 @@ gamma = 0.9  # Discounting rate
 pretrain_length = batch_size  # Number of experiences stored in the memory when initialised for first time
 memory_size = 1000000  # Number of experiences the memory can keep
 
-# Preprocessing hyper parameters
+# Pre-processing hyper parameters
 stack_size = 4  # Number of frames stacked
 
 # MODIFY TO FALSE IF JUST WANT TO SEE THE TRAINED AGENT
-training = True
-firstTrain = True
+training = False
+firstTrain = False
 
 # TURN THIS ON IF YOU WANT TO RENDER THE ENVIRONMENT
-episode_render = True
+episode_render = False
 
 
 class DQNetwork:
@@ -125,7 +122,7 @@ class DQNetwork:
             self.inputs_ = tf.placeholder(tf.float32, [None, *dq_state_size], name="inputs")
             self.actions_ = tf.placeholder(tf.float32, [None, self.action_size], name="actions_")
 
-            # Remeber that target_Q = R(s,a) + ymax Qhat(s',a')
+            # Remember that target_Q = R(s,a) + ymax Qhat(s',a')
             self.target_Q = tf.placeholder(tf.float32, [None], name="target")
 
             """
@@ -216,72 +213,6 @@ tf.reset_default_graph()
 # Instantiate the DQNetwork
 DQNetwork = DQNetwork(state_size, action_size, learning_rate)
 
-
-# Setup experience replay
-# Removed for now to simplify process
-"""
-class Memory():
-    def __init__(self, max_size):
-        self.buffer = deque(maxlen=max_size)
-
-    def add(self, experience):
-        self.buffer.append(experience)
-
-    def sample(self, batch_size):
-        buffer_size = len(self.buffer)
-        index = np.random.choice(np.arange(buffer_size),
-                                 size=batch_size,
-                                 replace=False)
-        return [self.buffer[i] for i in index]
-"""
-
-# Instantiate memory and provide some initial random values
-# Removed for now
-# memory = Memory(max_size=memory_size)
-
-# Remove pre-training - meant to initialise training buffer with data
-"""
-for i in range(pretrain_length):
-    # If it's first step..
-    if i == 0:
-        state = env.reset()
-
-        state, stacked_frames = stack_frames(stacked_frames, state, True)
-
-    # Get the next state the rewards, by taking a random action
-    choice = random.randint(1, len(possible_actions)) - 1
-    action = possible_actions[choice]
-    next_state, reward, done, _ = env.step(action)
-
-    # env.render()
-
-    # Stack the frames
-    next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-
-    # If the episode is finished (dead x 3)
-    if done:
-        # Finish the episode
-        next_state = np.zeros(state.shape)
-
-        # Add experience to memory
-        # Removed for now
-        # memory.add((state, action, reward, next_state, done))
-
-        # Start a new episode
-        state = env.reset()
-
-        # Stack the frames
-        state, stacked_frames = stack_frames(stacked_frames, state, True)
-
-    else:
-        # Add experience to memory
-        # Removed for now
-        # memory.add((state, action, reward, next_state, done))
-
-        # Our state is now the next state
-        state = next_state
-"""
-
 # Setup TensorBoard writer - output destination
 writer = tf.summary.FileWriter("./tensorboard/rl-test/1")
 
@@ -290,15 +221,11 @@ tf.summary.scalar("Loss", DQNetwork.loss)
 
 write_op = tf.summary.merge_all()
 
-"""
-Training Agent
-"""
 
+# Training Agent
 
 # Function to choose random or best known action
-def predict_action(p_explore_start, p_explore_stop, decy_rate, p_decay_step, p_state, actions):
-
-    print("Predicting action")
+def predict_action(p_explore_start, p_explore_stop, p_decay_rate, p_decay_step, p_state, p_actions):
 
     # Pick a number for epsilon greedy
     exp_exp_tradeoff = np.random.rand()
@@ -308,12 +235,10 @@ def predict_action(p_explore_start, p_explore_stop, decy_rate, p_decay_step, p_s
 
     if explore_probability > exp_exp_tradeoff:
         # Make a random action (explore)
-        print("Selecting random action")
         p_choice = random.randint(1, len(possible_actions)) - 1
         p_action = possible_actions[p_choice]
 
     else:
-        print("Getting best action")
         # Get action from Q network (exploit)
         # Estimate Qs value state
 
@@ -321,7 +246,7 @@ def predict_action(p_explore_start, p_explore_stop, decy_rate, p_decay_step, p_s
         # fetches = Tensor to calculate on
         # feed_dict = remaps values in the tensor, for each given key
         # So we're reusing output from last calc, and giving new inputs based on current state
-        p_qs = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: p_state.reshape((1, *p_state.shape))})
+        p_qs = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: p_state.reshape(1, *p_state.shape)})
 
         # Take the biggest Q Value
         # Returns list of score for each action - get index of highest scoring action
@@ -365,26 +290,25 @@ if training:
             # make a new episode and observe first state
             state = env.reset()
 
-            # Remember that stack frame function also calls preprocess function
+            # Remember that stack frame function also calls pre-process function
             state, stacked_frames = stack_frames(stacked_frames, state, True)
-
 
             while step < max_steps:
 
-                #(state, action, reward, next_state, done)
+                # (state, action, reward, next_state, done)
                 step_state = (0, 0, 0, 0, 0)
 
                 step += 1
 
                 # if step % 50 == 0:
-                print("Step {}".format(step))
+                #   print("Step {}".format(step))
 
                 # Increase decay step
                 decay_step += 1
 
                 # Predict the action to take and take it
-                action, explore_probablity = predict_action(explore_start, explore_stop, decay_rate, decay_step, state,
-                                                            possible_actions)
+                action, explore_probability = predict_action(explore_start, explore_stop, decay_rate, decay_step, state,
+                                                             possible_actions)
 
                 # Perform the action and get nex state, reward and done info
                 next_state, reward, done, _ = env.step(action)
@@ -415,20 +339,12 @@ if training:
 
                     # rewards_list.append((episode, total_reward))
 
-                    # store transition <st,at,rt+1,st+1> in memory
-                    # removed
-                    # memory.add((state, action, reward, next_state, done))
-
                     # (state, action, reward, next_state, done) - store for training
                     step_state = (state, action, reward, next_state, done)
 
                 else:
                     # Stack the fame of the next state
                     next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-
-                    # Add experience to memory
-                    # removed
-                    # memory.add((state, action, reward, next_state, done))
 
                     # (state, action, reward, next_state, done)
                     step_state = (state, action, reward, next_state, done)
@@ -438,24 +354,11 @@ if training:
 
                 # Learning Part
 
-                """
-                # Get an experience tuple from memory - (state, action, reward, next_state, done)
-                batch = memory.sample(batch_size) # batch_size == 64
-                
-                # states_mb is np.array, of each batches state, three dimensions (x,y of state, z for pile of states)
-                states_mb = np.array([each[0] for each in batch], ndmin=3)
-                                
-                actions_mb = np.array([each[1] for each in batch])
-                rewards_mb = np.array([each[2] for each in batch])
-                next_states_mb = np.array([each[3] for each in batch], ndmin=3)
-                dones_mb = np.array([each[4] for each in batch])
-                """
-
                 # Need to reshape into NP arrays for TF input
                 l_state = step_state[0].reshape(1, *state_size)
                 l_action = step_state[1].reshape(1, action_size)
                 l_reward = step_state[2]
-                l_next_state = step_state[3] # ndmin = minimum number of dimensions
+                l_next_state = step_state[3]
                 l_done = step_state[4]
 
                 target_Qs_batch = 0
@@ -464,11 +367,8 @@ if training:
                 # Qs_next_state = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: l_next_state})
                 Qs_next_state = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: l_state})
 
-                # Set Q_target = r if the episode ends at s+1, otherwise set Q_target = r + gammma * maxQ(s',a')
-
-
+                # Set Q_target -> r if the episode ends at s+1, otherwise set Q_target = r + gammma * maxQ(s',a')
                 terminal = l_done
-
                 # if we are in a terminal state, only equals reward
                 if terminal:
                     # target_Qs_batch.append(rewards_mb[i])
@@ -478,27 +378,16 @@ if training:
                     target_Qs_batch = target
 
                 # Reshape to np array of 1
-                targets_mb = np.array(target_Qs_batch).reshape(1)
+                l_targets = np.array(target_Qs_batch).reshape(1)
 
-                
                 loss, _ = sess.run([DQNetwork.loss, DQNetwork.optimizer],
                                    feed_dict={DQNetwork.inputs_: l_state,
-                                              DQNetwork.target_Q: targets_mb,
+                                              DQNetwork.target_Q: l_targets,
                                               DQNetwork.actions_: l_action})
 
                 # Write TF summaries
                 summary = sess.run(write_op, feed_dict={DQNetwork.inputs_: l_state,
-                                                        DQNetwork.target_Q: targets_mb,
-                                                        DQNetwork.actions_: l_action})
-                
-                loss, _ = sess.run([DQNetwork.loss, DQNetwork.optimizer],
-                                   feed_dict={DQNetwork.inputs_: l_state,
-                                              DQNetwork.target_Q: targets_mb,
-                                              DQNetwork.actions_: l_action})
-
-                # Write TF summaries
-                summary = sess.run(write_op, feed_dict={DQNetwork.inputs_: -l_state,
-                                                        DQNetwork.target_Q: targets_mb,
+                                                        DQNetwork.target_Q: l_targets,
                                                         DQNetwork.actions_: l_action})
 
                 writer.add_summary(summary, episode)
@@ -507,7 +396,7 @@ if training:
             # Save updated model
             save_path = saver.save(sess, "./models/model.ckpt")
             print("Model Saved")
-            """
+
 
 with tf.Session() as sess:
     total_test_rewards = []
@@ -526,7 +415,7 @@ with tf.Session() as sess:
 
         while True:
             # Reshape the state
-            state = state.reshape((1, *state_size))
+            state = state.reshape(1, *state_size)
             # Get action from Q-network
             # Estimate the Qs values state
             Qs = sess.run(DQNetwork.output, feed_dict={DQNetwork.inputs_: state})
@@ -550,5 +439,5 @@ with tf.Session() as sess:
             state = next_state
 
     env.close()
-    """
+
     # force git
